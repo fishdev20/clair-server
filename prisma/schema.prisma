@@ -3,10 +3,65 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
+  // output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  createdAt DateTime   @default(now())
+  tokens    Token[]
+  vendors   Vendor[]
+  syncState SyncState?
+}
+
+model Token {
+  id           String    @id @default(cuid())
+  userId       String
+  provider     String // "google"
+  accessToken  String
+  refreshToken String?
+  scope        String
+  expiryDate   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, provider])
+}
+
+model Vendor {
+  id             String   @id @default(cuid())
+  userId         String
+  brand          String
+  domainKey      String
+  firstSeen      DateTime
+  lastSeen       DateTime
+  evidenceCount  Int      @default(0)
+  unsubscribeUrl String?
+  confidence     Float
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, brand, domainKey])
+  @@index([userId, brand])
+}
+
+model SyncState {
+  id         String    @id @default(cuid())
+  userId     String    @unique
+  isRunning  Boolean   @default(false)
+  processed  Int       @default(0)
+  vendors    Int       @default(0)
+  nextPage   String? // nextPageToken for threads.list
+  phase      String    @default("idle") // idle | full | incremental
+  // Incremental sync
+  historyId  String? // last known historyId
+  lastScanAt DateTime?
+  user       User      @relation(fields: [userId], references: [id])
 }
